@@ -34,6 +34,8 @@ namespace Confluent.Kafka
     /// </summary>
     internal class Consumer<TKey, TValue> : IConsumer<TKey, TValue>, IClient
     {
+        private const string AssignmentDiagnosticFacility = "ASSIGNDIAG";
+
         internal class Config
         {
             internal IEnumerable<KeyValuePair<string, string>> config;
@@ -142,6 +144,29 @@ namespace Confluent.Kafka
         private Action<LogMessage> logHandler;
         private object loggerLockObj = new object();
         private Librdkafka.LogDelegate logCallbackDelegate;
+        private void LogAssignmentDiagnostic(string message)
+        {
+            if (logHandler == null) { return; }
+
+            try
+            {
+                var name = kafkaHandle == null || kafkaHandle.IsClosed
+                    ? string.Empty
+                    : kafkaHandle.Name;
+                logHandler(new LogMessage(name, SyslogLevel.Info, AssignmentDiagnosticFacility, message));
+            }
+            catch (Exception)
+            {
+                // Keep diagnostic logging non-invasive for rebalance processing.
+            }
+        }
+
+        private static string FormatTopicPartitions(IEnumerable<TopicPartition> partitions)
+            => string.Join(", ", partitions.Select(p => $"{p.Topic} [{p.Partition}]"));
+
+        private static string FormatTopicPartitionOffsets(IEnumerable<TopicPartitionOffset> partitions)
+            => string.Join(", ", partitions.Select(p => $"{p.Topic} [{p.Partition}]@{p.Offset}"));
+
         private void LogCallback(IntPtr rk, SyslogLevel level, string fac, string buf)
         {
             if (kafkaHandle != null && kafkaHandle.IsClosed) { return; }
@@ -186,6 +211,8 @@ namespace Confluent.Kafka
                 }
 
                 var partitions = SafeKafkaHandle.GetTopicPartitionOffsetErrorList(partitionsPtr).Select(p => p.TopicPartition).ToList();
+                LogAssignmentDiagnostic(
+                    $"stage=rebalance-callback-input protocol={kafkaHandle.RebalanceProtocol} error={err} count={partitions.Count} partitions=[{FormatTopicPartitions(partitions)}]");
 
                 if (err == ErrorCode.Local_AssignPartitions)
                 {
@@ -203,7 +230,9 @@ namespace Confluent.Kafka
                     }
 
                     lock (assignCallCountLockObj) { assignCallCount = 0; }
-                    var assignTo = partitionsAssignedHandler(partitions);
+                    var assignTo = partitionsAssignedHandler(partitions).ToList();
+                    LogAssignmentDiagnostic(
+                        $"stage=partitions-assigned-handler-return count={assignTo.Count} partitions=[{FormatTopicPartitionOffsets(assignTo)}]");
                     lock (assignCallCountLockObj)
                     {
                         if (assignCallCount > 0)
@@ -214,13 +243,13 @@ namespace Confluent.Kafka
 
                     if (kafkaHandle.RebalanceProtocol == "COOPERATIVE")
                     {
-                        if (assignTo.Count() != partitions.Count())
+                        if (assignTo.Count != partitions.Count)
                         {
                             throw new InvalidOperationException("The partitions assigned handler must not return a different set of topic partitions than it was provided");
                         }
 
                         var sortedPartitions = partitions.OrderBy(p => p).ToList();
-                        var sortedAssignTo = assignTo.OrderBy(p => p.TopicPartition);
+                        var sortedAssignTo = assignTo.OrderBy(p => p.TopicPartition).ToList();
 
                         var partitionsIter = sortedPartitions.GetEnumerator();
                         foreach (var p in sortedAssignTo)
@@ -232,6 +261,8 @@ namespace Confluent.Kafka
                             }
                         }
 
+                        LogAssignmentDiagnostic(
+                            $"stage=rebalance-before-incremental-assign count={sortedAssignTo.Count} partitions=[{FormatTopicPartitionOffsets(sortedAssignTo)}]");
                         IncrementalAssign(sortedAssignTo);
                     }
                     else
@@ -427,7 +458,10 @@ namespace Confluent.Kafka
         public void IncrementalAssign(IEnumerable<TopicPartitionOffset> partitions)
         {
             lock (assignCallCountLockObj) { assignCallCount += 1; }
-            kafkaHandle.IncrementalAssign(partitions.ToList());
+            var partitionList = partitions.ToList();
+            LogAssignmentDiagnostic(
+                $"stage=consumer-incremental-assign count={partitionList.Count} partitions=[{FormatTopicPartitionOffsets(partitionList)}]");
+            kafkaHandle.IncrementalAssign(partitionList);
         }
 
 
@@ -737,6 +771,7 @@ namespace Confluent.Kafka
             }
 
             this.kafkaHandle = SafeKafkaHandle.Create(RdKafkaType.Consumer, configPtr, this);
+            this.kafkaHandle.AssignmentDiagnosticLogger = LogAssignmentDiagnostic;
             configHandle.SetHandleAsInvalid(); // config object is no longer useable.
 
             var pollSetConsumerError = kafkaHandle.PollSetConsumer();
