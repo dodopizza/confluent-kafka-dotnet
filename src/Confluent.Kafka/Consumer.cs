@@ -195,6 +195,8 @@ namespace Confluent.Kafka
         {
             try
             {
+            try
+            {
                 // Ensure registered handlers are never called as a side-effect of Dispose/Finalize (prevents deadlocks in common scenarios).
                 if (kafkaHandle.IsClosed)
                 { 
@@ -275,9 +277,15 @@ namespace Confluent.Kafka
 
                 if (err == ErrorCode.Local_RevokePartitions)
                 {
+                    var assignmentLost = kafkaHandle.AssignmentLost;
+                    LogAssignmentDiagnostic(
+                        $"stage=rebalance-revoke-input assignmentLost={assignmentLost} hasRevokedHandler={partitionsRevokedHandler != null} hasLostHandler={partitionsLostHandler != null} count={partitions.Count} partitions=[{FormatTopicPartitions(partitions)}]");
+
                     if (partitionsRevokedHandler == null &&
-                        (!kafkaHandle.AssignmentLost || partitionsLostHandler == null))
+                        (!assignmentLost || partitionsLostHandler == null))
                     {
+                        LogAssignmentDiagnostic(
+                            $"stage=rebalance-revoke-no-handler protocol={kafkaHandle.RebalanceProtocol}");
                         if (kafkaHandle.RebalanceProtocol == "COOPERATIVE")
                         {
                             IncrementalUnassign(partitions);
@@ -296,14 +304,21 @@ namespace Confluent.Kafka
                         {
                             assignmentWithPositions.Add(this.PositionTopicPartitionOffset(tp));
                         }
-                        catch
+                        catch (Exception posEx)
                         {
+                            LogAssignmentDiagnostic(
+                                $"stage=rebalance-revoke-position-failed partition={tp.Topic} [{tp.Partition}] error={posEx.GetType().Name}: {posEx.Message}");
                             assignmentWithPositions.Add(new TopicPartitionOffset(tp, Offset.Unset));
                         }
                     }
 
                     lock (assignCallCountLockObj) { assignCallCount = 0; }
-                    var assignTo = kafkaHandle.AssignmentLost
+                    var handlerType = assignmentLost
+                        ? (partitionsLostHandler != null ? "lost" : "revoked")
+                        : "revoked";
+                    LogAssignmentDiagnostic(
+                        $"stage=rebalance-revoke-calling-handler handlerType={handlerType} assignmentLost={assignmentLost} positions=[{FormatTopicPartitionOffsets(assignmentWithPositions)}]");
+                    var assignTo = assignmentLost
                         ? (partitionsLostHandler != null
                             ? partitionsLostHandler(assignmentWithPositions)
                             : partitionsRevokedHandler(assignmentWithPositions))
@@ -319,10 +334,13 @@ namespace Confluent.Kafka
                     if (kafkaHandle.RebalanceProtocol == "COOPERATIVE")
                     {
                         // assignTo is always empty, not used in the COOPERATIVE case.
+                        LogAssignmentDiagnostic(
+                            $"stage=rebalance-revoke-before-incremental-unassign count={partitions.Count} partitions=[{FormatTopicPartitions(partitions)}]");
                         IncrementalUnassign(partitions);
                     }
                     else
                     {
+                        LogAssignmentDiagnostic("stage=rebalance-revoke-before-unassign");
                         Unassign();
                     }
                     return;
@@ -332,25 +350,47 @@ namespace Confluent.Kafka
             }
             catch (Exception e)
             {
+                LogAssignmentDiagnostic(
+                    $"stage=rebalance-exception-emergency-unassign protocol={kafkaHandle.RebalanceProtocol} error={e.GetType().Name}: {e.Message}");
                 if (kafkaHandle.RebalanceProtocol == "COOPERATIVE")
                 {
-                    if (Assignment.Count > 0)
+                    var currentAssignment = Assignment;
+                    LogAssignmentDiagnostic(
+                        $"stage=rebalance-emergency-cooperative-unassign currentAssignmentCount={currentAssignment.Count} partitions=[{FormatTopicPartitions(currentAssignment)}]");
+                    if (currentAssignment.Count > 0)
                     {
                         try
                         {
-                            IncrementalUnassign(Assignment);
+                            IncrementalUnassign(currentAssignment);
                         }
                         catch (KafkaException e1)
                         {
+                            LogAssignmentDiagnostic(
+                                $"stage=rebalance-emergency-unassign-failed error={e1.GetType().Name}: {e1.Message}");
                             handlerException = e1;
                         }
                     }
                 }
                 else
                 {
+                    LogAssignmentDiagnostic("stage=rebalance-emergency-eager-unassign");
                     Unassign();
                 }
                 handlerException = e;
+            }
+            }
+            finally
+            {
+                try
+                {
+                    var postAssignment = kafkaHandle.IsClosed ? null : kafkaHandle.GetAssignment();
+                    LogAssignmentDiagnostic(
+                        $"stage=rebalance-callback-complete assignmentCount={postAssignment?.Count ?? 0} partitions=[{FormatTopicPartitions(postAssignment ?? new List<TopicPartition>())}] hasHandlerException={handlerException != null}");
+                }
+                catch (Exception)
+                {
+                    // Assignment snapshot must not interfere with rebalance completion.
+                }
             }
         }
 
@@ -474,7 +514,10 @@ namespace Confluent.Kafka
         public void IncrementalUnassign(IEnumerable<TopicPartition> partitions)
         {
             lock (assignCallCountLockObj) { assignCallCount += 1; }
-            kafkaHandle.IncrementalUnassign(partitions.Select(p => new TopicPartitionOffset(p, Offset.Unset)).ToList());
+            var partitionList = partitions.Select(p => new TopicPartitionOffset(p, Offset.Unset)).ToList();
+            LogAssignmentDiagnostic(
+                $"stage=consumer-incremental-unassign count={partitionList.Count} partitions=[{FormatTopicPartitionOffsets(partitionList)}]");
+            kafkaHandle.IncrementalUnassign(partitionList);
         }
 
 
@@ -482,6 +525,7 @@ namespace Confluent.Kafka
         public void Unassign()
         {
             lock (assignCallCountLockObj) { assignCallCount += 1; }
+            LogAssignmentDiagnostic("stage=consumer-unassign");
             kafkaHandle.Assign(null);
         }
 
@@ -612,14 +656,18 @@ namespace Confluent.Kafka
         /// <inheritdoc/>
         public void Close()
         {
+            LogAssignmentDiagnostic("stage=consumer-close-start");
             try
             {
                 // commits offsets and unsubscribes.
                 kafkaHandle.ConsumerClose();
+                LogAssignmentDiagnostic("stage=consumer-close-completed");
                 if (this.handlerException != null)
                 {
                     var ex = this.handlerException;
                     this.handlerException = null;
+                    LogAssignmentDiagnostic(
+                        $"stage=consumer-close-surfacing-handler-exception error={ex.GetType().Name}: {ex.Message}");
                     throw ex;
                 }
             }
@@ -830,6 +878,8 @@ namespace Confluent.Kafka
             {
                 var ex = this.handlerException;
                 this.handlerException = null;
+                LogAssignmentDiagnostic(
+                    $"stage=consume-surfacing-handler-exception error={ex.GetType().Name}: {ex.Message}");
                 if (msgPtr != IntPtr.Zero)
                 {
                     Librdkafka.message_destroy(msgPtr);
