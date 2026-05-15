@@ -157,7 +157,7 @@ namespace Confluent.Kafka.Impl
         {
             if (IsClosed)
             {
-                throw new ObjectDisposedException($"handle is destroyed", innerException: null);
+                throw new ObjectDisposedException("handle is destroyed", innerException: null);
             }
         }
 
