@@ -612,17 +612,23 @@ namespace Confluent.Kafka
         /// <inheritdoc/>
         public void Close()
         {
-            // commits offsets and unsubscribes.
-            kafkaHandle.ConsumerClose();
-            if (this.handlerException != null)
+            try
             {
-                var ex = this.handlerException;
-                this.handlerException = null;
-                throw ex;
+                // commits offsets and unsubscribes.
+                kafkaHandle.ConsumerClose();
+                if (this.handlerException != null)
+                {
+                    var ex = this.handlerException;
+                    this.handlerException = null;
+                    throw ex;
+                }
             }
-
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            finally
+            {
+                // even if consumer close failed we still have to free resources
+                Dispose(true);
+                GC.SuppressFinalize(this);
+            }
         }
 
 
