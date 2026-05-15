@@ -1,14 +1,11 @@
 name: Publish prerelease package
 
 on:
-  push:
-    branches:
-      - kafka-assignment-diagnostics-v2.13.2
   workflow_dispatch:
     inputs:
-      version_suffix:
-        description: Optional prerelease version suffix without the base version prefix
-        required: false
+      version:
+        description: 'Full package version (e.g. 2.6.0-preview.1)'
+        required: true
         type: string
 
 permissions:
@@ -24,11 +21,10 @@ jobs:
       PACKAGE_OUTPUT: artifacts/packages
       PACKAGE_TARGET_FRAMEWORKS: net8.0
       GITHUB_PACKAGES_SOURCE: https://nuget.pkg.github.com/dodopizza/index.json
-      REQUESTED_VERSION_SUFFIX: ${{ github.event.inputs.version_suffix }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -38,32 +34,12 @@ jobs:
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compute prerelease version suffix
-        shell: pwsh
-        run: |
-          $shortSha = "${{ github.sha }}".Substring(0, 8)
-          $branch = "${{ github.ref_name }}" -replace '[^0-9A-Za-z-]', '-'
-          $suffix = $env:REQUESTED_VERSION_SUFFIX
-
-          if ([string]::IsNullOrWhiteSpace($suffix)) {
-            $suffix = "dodo.$branch.${{ github.run_number }}.$shortSha"
-          }
-
-          $suffix = $suffix.Trim() -replace '[^0-9A-Za-z.-]', '-'
-
-          if ([string]::IsNullOrWhiteSpace($suffix)) {
-            throw "Version suffix must not be empty."
-          }
-
-          "VERSION_SUFFIX=$suffix" >> $env:GITHUB_ENV
-          "Package version suffix: $suffix"
-
       - name: Pack Confluent.Kafka
         run: >
           dotnet pack src/Confluent.Kafka/Confluent.Kafka.csproj
           --configuration Release
           /p:TargetFrameworks="${{ env.PACKAGE_TARGET_FRAMEWORKS }}"
-          /p:VersionSuffix="${{ env.VERSION_SUFFIX }}"
+          /p:Version="${{ inputs.version }}"
           --output "${{ env.PACKAGE_OUTPUT }}"
 
       - name: Publish to GitHub Packages
