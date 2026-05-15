@@ -25,3 +25,4 @@ core
 
 *coverage.xml
 .DS_Store
+*.lscache

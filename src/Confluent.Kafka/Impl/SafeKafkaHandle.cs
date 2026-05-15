@@ -93,6 +93,8 @@ namespace Confluent.Kafka.Impl
 
         public RdKafkaType type;
 
+        internal Action<string> AssignmentDiagnosticLogger { get; set; }
+
         private object topicHandlesLock = new object();
         private Dictionary<string, SafeTopicHandle> topicHandles
             = new Dictionary<string, SafeTopicHandle>(StringComparer.Ordinal);
@@ -155,7 +157,7 @@ namespace Confluent.Kafka.Impl
         {
             if (IsClosed)
             {
-                throw new ObjectDisposedException($"handle is destroyed", innerException: null);
+                throw new ObjectDisposedException("handle is destroyed", innerException: null);
             }
         }
 
@@ -804,16 +806,44 @@ namespace Confluent.Kafka.Impl
             return ret;
         }
 
-        private void AssignImpl(IEnumerable<TopicPartitionOffset> partitions,
+        private void LogAssignmentDiagnostic(string message)
+        {
+            if (AssignmentDiagnosticLogger == null) { return; }
+
+            try
+            {
+                AssignmentDiagnosticLogger(message);
+            }
+            catch
+            {
+                // Assignment diagnostics must not change client behavior.
+            }
+        }
+
+        private static string FormatTopicPartitionOffsets(IEnumerable<TopicPartitionOffset> partitions)
+            => partitions == null
+                ? string.Empty
+                : string.Join(", ", partitions.Select(p => $"{p.Topic} [{p.Partition}]@{p.Offset}"));
+
+        private static int GetPartitionListCount(IntPtr list)
+            => list == IntPtr.Zero
+                ? 0
+                : Util.Marshal.PtrToStructure<rd_kafka_topic_partition_list>(list).cnt;
+
+        private void AssignImpl(IReadOnlyCollection<TopicPartitionOffset> partitions,
                                 Func<IntPtr, IntPtr, ErrorCode> assignMethodErr,
-                                Func<IntPtr, IntPtr, IntPtr> assignMethodError)
+                                Func<IntPtr, IntPtr, IntPtr> assignMethodError,
+                                string assignMethodName)
         {
             ThrowIfHandleClosed();
+
+            LogAssignmentDiagnostic(
+                $"stage=safe-handle-assign-input method={assignMethodName} managedCount={partitions?.Count ?? 0} partitions=[{FormatTopicPartitionOffsets(partitions)}]");
 
             IntPtr list = IntPtr.Zero;
             if (partitions != null)
             {
-                list = Librdkafka.topic_partition_list_new((IntPtr) partitions.Count());
+                list = Librdkafka.topic_partition_list_new((IntPtr) partitions.Count);
                 if (list == IntPtr.Zero)
                 {
                     throw new Exception("Failed to create topic partition list");
@@ -834,6 +864,9 @@ namespace Confluent.Kafka.Impl
                 }
             }
 
+            LogAssignmentDiagnostic(
+                $"stage=safe-handle-native-list-before-call method={assignMethodName} nativeCount={GetPartitionListCount(list)}");
+
             ErrorCode err = ErrorCode.NoError;
             Error error = null;
 
@@ -850,6 +883,9 @@ namespace Confluent.Kafka.Impl
                 }
             }
 
+            LogAssignmentDiagnostic(
+                $"stage=safe-handle-assign-result method={assignMethodName} errorCode={err} hasError={error != null}");
+
             if (list != IntPtr.Zero)
             {
                 Librdkafka.topic_partition_list_destroy(list);
@@ -859,14 +895,14 @@ namespace Confluent.Kafka.Impl
             else if (error != null) { throw new KafkaException(error); }
         }
 
-        internal void Assign(IEnumerable<TopicPartitionOffset> partitions)
-            => AssignImpl(partitions, Librdkafka.assign, null);
+        internal void Assign(IReadOnlyCollection<TopicPartitionOffset> partitions)
+            => AssignImpl(partitions, Librdkafka.assign, null, "assign");
 
-        internal void IncrementalAssign(IEnumerable<TopicPartitionOffset> partitions)
-            => AssignImpl(partitions, null, Librdkafka.incremental_assign);
+        internal void IncrementalAssign(IReadOnlyCollection<TopicPartitionOffset> partitions)
+            => AssignImpl(partitions, null, Librdkafka.incremental_assign, "incremental_assign");
 
-        internal void IncrementalUnassign(IEnumerable<TopicPartitionOffset> partitions)
-            => AssignImpl(partitions, null, Librdkafka.incremental_unassign);
+        internal void IncrementalUnassign(IReadOnlyCollection<TopicPartitionOffset> partitions)
+            => AssignImpl(partitions, null, Librdkafka.incremental_unassign, "incremental_unassign");
 
         internal bool AssignmentLost
         {
