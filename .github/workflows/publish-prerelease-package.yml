@@ -1,0 +1,56 @@
+name: Publish prerelease package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Full package version (e.g. 2.6.0-preview.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Publish Confluent.Kafka prerelease package
+    runs-on: ubuntu-latest
+
+    env:
+      PACKAGE_OUTPUT: artifacts/packages
+      PACKAGE_TARGET_FRAMEWORKS: net8.0
+      GITHUB_PACKAGES_SOURCE: https://nuget.pkg.github.com/dodopizza/index.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+          source-url: ${{ env.GITHUB_PACKAGES_SOURCE }}
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pack Confluent.Kafka
+        run: >
+          dotnet pack src/Confluent.Kafka/Confluent.Kafka.csproj
+          --configuration Release
+          /p:TargetFrameworks="${{ env.PACKAGE_TARGET_FRAMEWORKS }}"
+          /p:Version="${{ inputs.version }}"
+          --output "${{ env.PACKAGE_OUTPUT }}"
+
+      - name: Publish to GitHub Packages
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Get-ChildItem "${{ env.PACKAGE_OUTPUT }}" -Filter *.nupkg |
+            ForEach-Object {
+              dotnet nuget push $_.FullName `
+                --source "${{ env.GITHUB_PACKAGES_SOURCE }}" `
+                --api-key "$env:GITHUB_TOKEN" `
+                --skip-duplicate
+            }
