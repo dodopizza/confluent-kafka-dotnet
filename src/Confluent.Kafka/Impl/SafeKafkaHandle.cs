@@ -809,16 +809,18 @@ namespace Confluent.Kafka.Impl
                                 Func<IntPtr, IntPtr, IntPtr> assignMethodError)
         {
             ThrowIfHandleClosed();
+            
+            var partitionList = partitions?.ToList();
 
             IntPtr list = IntPtr.Zero;
-            if (partitions != null)
+            if (partitionList != null)
             {
-                list = Librdkafka.topic_partition_list_new((IntPtr) partitions.Count());
+                list = Librdkafka.topic_partition_list_new((IntPtr) partitionList.Count);
                 if (list == IntPtr.Zero)
                 {
                     throw new Exception("Failed to create topic partition list");
                 }
-                foreach (var partition in partitions)
+                foreach (var partition in partitionList)
                 {
                     if (partition.Topic == null)
                     {
