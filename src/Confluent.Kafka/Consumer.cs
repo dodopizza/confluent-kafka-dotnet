@@ -203,7 +203,7 @@ namespace Confluent.Kafka
                     }
 
                     lock (assignCallCountLockObj) { assignCallCount = 0; }
-                    var assignTo = partitionsAssignedHandler(partitions);
+                    var assignTo = partitionsAssignedHandler(partitions).ToList();
                     lock (assignCallCountLockObj)
                     {
                         if (assignCallCount > 0)
@@ -214,13 +214,13 @@ namespace Confluent.Kafka
 
                     if (kafkaHandle.RebalanceProtocol == "COOPERATIVE")
                     {
-                        if (assignTo.Count() != partitions.Count())
+                        if (assignTo.Count != partitions.Count)
                         {
                             throw new InvalidOperationException("The partitions assigned handler must not return a different set of topic partitions than it was provided");
                         }
 
                         var sortedPartitions = partitions.OrderBy(p => p).ToList();
-                        var sortedAssignTo = assignTo.OrderBy(p => p.TopicPartition);
+                        var sortedAssignTo = assignTo.OrderBy(p => p.TopicPartition).ToList();
 
                         var partitionsIter = sortedPartitions.GetEnumerator();
                         foreach (var p in sortedAssignTo)
