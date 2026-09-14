@@ -24,6 +24,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka.Impl;
 using Confluent.Kafka.Internal;
+using Confluent.Kafka.Internal.OAuthBearer;
 
 
 namespace Confluent.Kafka
@@ -454,8 +455,14 @@ namespace Confluent.Kafka
 
         /// <inheritdoc/>
         public void StoreOffset(ConsumeResult<TKey, TValue> result)
-            => StoreOffset(new TopicPartitionOffset(result.TopicPartition,
-                    result.Offset + 1, result.LeaderEpoch));
+        {
+            if (result.Message == null)
+            {
+                throw new InvalidOperationException("Attempt was made to store offset corresponding to an empty consume result");
+            }
+            StoreOffset(new TopicPartitionOffset(result.TopicPartition,
+                result.Offset + 1, result.LeaderEpoch));
+        }
 
 
         /// <inheritdoc/>
@@ -652,7 +659,11 @@ namespace Confluent.Kafka
             this.partitionsRevokedHandler = baseConfig.partitionsRevokedHandler;
             this.partitionsLostHandler = baseConfig.partitionsLostHandler;
             this.offsetsCommittedHandler = baseConfig.offsetsCommittedHandler;
-            this.oAuthBearerTokenRefreshHandler = baseConfig.oAuthBearerTokenRefreshHandler;
+            this.oAuthBearerTokenRefreshHandler =
+                baseConfig.oAuthBearerTokenRefreshHandler == default(Action<string>)
+                    ? SaslOauthbearerConfigHelper.ResolveAutoWiredHandler(
+                        this, Confluent.Kafka.Config.Snapshot(baseConfig.config))
+                    : baseConfig.oAuthBearerTokenRefreshHandler;
             this.revokedOrLostHandlerIsFunc = baseConfig.revokedOrLostHandlerIsFunc;
             Librdkafka.Initialize(null);
 

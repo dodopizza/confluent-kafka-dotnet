@@ -3,17 +3,15 @@
   <PropertyGroup>
     <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <AssemblyName>OAuthOIDC</AssemblyName>
-    <TargetFramework>net8.0</TargetFramework>
-    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- nuget package reference: <PackageReference Include="Confluent.Kafka" Version="2.14.0" /> -->
+    <!-- nuget package reference: <PackageReference Include="Confluent.Kafka" Version="2.15.1" /> -->
     <ProjectReference Include="../../src/Confluent.Kafka/Confluent.Kafka.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NJsonSchema" Version="10.8.0" />
+    <PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.0.2" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-// *** Auto-generated from librdkafka v2.14.0 *** - do not modify manually.
+// *** Auto-generated from librdkafka v2.15.1 *** - do not modify manually.
 //
 // Copyright 2018-2022 Confluent Inc.
 //
@@ -216,7 +216,12 @@ namespace Confluent.Kafka
         /// <summary>
         ///     AzureIMDS
         /// </summary>
-        AzureIMDS
+        AzureIMDS,
+
+        /// <summary>
+        ///     AwsIam
+        /// </summary>
+        AwsIam
     }
 
     /// <summary>
@@ -486,7 +491,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Maximum size for message to be copied to buffer. Messages larger than this will be passed by reference (zero-copy) at the expense of larger iovecs.
+        ///     Maximum size for message to be copied to buffer. Messages larger than this will be passed by reference (zero-copy) at the expense of larger iovecs. This property is not supported for share consumers.
         ///
         ///     default: 65535
         ///     importance: low
@@ -496,7 +501,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Maximum Kafka protocol response message size. This serves as a safety precaution to avoid memory exhaustion in case of protocol hickups. This value must be at least `fetch.max.bytes`  + 512 to allow for protocol overhead; the value is adjusted automatically unless the configuration property is explicitly set.
+        ///     Maximum Kafka protocol response message size. This serves as a safety precaution to avoid memory exhaustion in case of protocol hickups. This value must be at least `fetch.max.bytes`  + 512 to allow for protocol overhead; the value is adjusted automatically unless the configuration property is explicitly set. For share consumers, the default value is INT_MAX.
         ///
         ///     default: 100000000
         ///     importance: medium
@@ -506,7 +511,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Maximum number of in-flight requests per broker connection. This is a generic property applied to all broker communication, however it is primarily relevant to produce requests. In particular, note that other mechanisms limit the number of outstanding consumer fetch request per broker to one.
+        ///     Maximum number of in-flight requests per broker connection. This is a generic property applied to all broker communication, however it is primarily relevant to produce requests. In particular, note that other mechanisms limit the number of outstanding consumer fetch request per broker to one. This property is ignored for share consumers.
         ///
         ///     default: 1000000
         ///     importance: low
@@ -586,7 +591,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Topic blacklist, a comma-separated list of regular expressions for matching topic names that should be ignored in broker metadata information as if the topics did not exist.
+        ///     Topic blacklist, a comma-separated list of regular expressions for matching topic names that should be ignored in broker metadata information as if the topics did not exist. This property is not supported for share consumers.
         ///
         ///     default: ''
         ///     importance: low
@@ -696,7 +701,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Close broker connections after the specified time of inactivity. Disable with 0. If this property is left at its default value some heuristics are performed to determine a suitable default value, this is currently limited to identifying brokers on Azure (see librdkafka issue #3109 for more info). Actual value can be lower, up to 2s lower, only if `connections.max.idle.ms` >= 4s, as jitter is added to avoid disconnecting all brokers at the same time.
+        ///     Close broker connections after the specified time of inactivity. Disable with 0. For share consumers, the default value is 540000 (9 mins).If this property is left at its default value some heuristics are performed to determine a suitable default value, this is currently limited to identifying brokers on Azure (see librdkafka issue #3109 for more info). Actual value can be lower, up to 2s lower, only if `connections.max.idle.ms` >= 4s, as jitter is added to avoid disconnecting all brokers at the same time.
         ///
         ///     default: 0
         ///     importance: medium
@@ -706,7 +711,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     The initial time to wait before reconnecting to a broker after the connection has been closed. The time is increased exponentially until `reconnect.backoff.max.ms` is reached. -25% to +50% jitter is applied to each reconnect backoff. A value of 0 disables the backoff and reconnects immediately.
+        ///     The initial time to wait before reconnecting to a broker after the connection has been closed. The time is increased exponentially until `reconnect.backoff.max.ms` is reached. -25% to +50% jitter is applied to each reconnect backoff. A value of 0 disables the backoff and reconnects immediately. For share consumers, the default value is 50.
         ///
         ///     default: 100
         ///     importance: medium
@@ -716,7 +721,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     The maximum time to wait before reconnecting to a broker after the connection has been closed.
+        ///     The maximum time to wait before reconnecting to a broker after the connection has been closed. For share consumers, the default value is 1000.
         ///
         ///     default: 10000
         ///     importance: medium
@@ -826,7 +831,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Allow automatic topic creation on the broker when subscribing to or assigning non-existent topics. The broker must also be configured with `auto.create.topics.enable=true` for this configuration to take effect. Note: the default value (true) for the producer is different from the default value (false) for the consumer. Further, the consumer default value is different from the Java consumer (true), and this property is not supported by the Java producer. Requires broker version >= 0.11.0.0, for older broker versions only the broker configuration applies.
+        ///     Allow automatic topic creation on the broker when subscribing to or assigning non-existent topics. The broker must also be configured with `auto.create.topics.enable=true` for this configuration to take effect. Note: the default value (true) for the producer is different from the default value (false) for the consumer. Further, the consumer default value is different from the Java consumer (true), and this property is not supported by the Java producer. Requires broker version >= 0.11.0.0, for older broker versions only the broker configuration applies. This property is currently not supported for share consumers and will be enabled in the General Availability (GA) release.
         ///
         ///     default: false
         ///     importance: low
@@ -1346,7 +1351,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Type of metadata-based authentication to use for OAUTHBEARER/OIDC `azure_imds` authenticates using the Azure IMDS endpoint. Sets a default value for `sasl.oauthbearer.token.endpoint.url` if missing. Configuration values specific of chosen authentication type can be passed through `sasl.oauthbearer.config`.
+        ///     Type of metadata-based authentication to use for OAUTHBEARER/OIDC `azure_imds` authenticates using the Azure IMDS endpoint. Sets a default value for `sasl.oauthbearer.token.endpoint.url` if missing. `aws_iam` indicates AWS IAM-based authentication using GetWebIdentityToken API. librdkafka does not implement the aws_iam token flow natively as of now. Configuration values specific of chosen authentication type can be passed through `sasl.oauthbearer.config`.
         ///
         ///     default: none
         ///     importance: low
@@ -1780,7 +1785,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Enable static group membership. Static group members are able to leave and rejoin a group within the configured `session.timeout.ms` without prompting a group rebalance. This should be used in combination with a larger `session.timeout.ms` to avoid group rebalances caused by transient unavailability (e.g. process restarts). Requires broker version >= 2.3.0.
+        ///     Enable static group membership. Static group members are able to leave and rejoin a group within the configured `session.timeout.ms` without prompting a group rebalance. This should be used in combination with a larger `session.timeout.ms` to avoid group rebalances caused by transient unavailability (e.g. process restarts). Requires broker version >= 2.3.0. This property is not supported for share consumers.
         ///
         ///     default: ''
         ///     importance: medium
@@ -1840,7 +1845,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Server side assignor to use. Keep it null to make server select a suitable assignor for the group. Available assignors: uniform or range. Default is null
+        ///     Server side assignor to use. Keep it null to make server select a suitable assignor for the group. Available assignors: uniform or range. Default is null. This property is not supported for share consumers.
         ///
         ///     default: ''
         ///     importance: medium
@@ -1880,7 +1885,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     The frequency in milliseconds that the consumer offsets are committed (written) to offset storage. (0 = disable). This setting is used by the high-level consumer.
+        ///     The frequency in milliseconds that the consumer offsets are committed (written) to offset storage. (0 = disable). This setting is used by the high-level consumer. This property is ignored for share consumers.
         ///
         ///     default: 5000
         ///     importance: medium
@@ -1900,7 +1905,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Minimum number of messages per topic+partition librdkafka tries to maintain in the local consumer queue.
+        ///     Minimum number of messages per topic+partition librdkafka tries to maintain in the local consumer queue. This property is not supported for share consumers.
         ///
         ///     default: 100000
         ///     importance: medium
@@ -1910,7 +1915,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Maximum number of kilobytes of queued pre-fetched messages in the local consumer queue. If using the high-level consumer this setting applies to the single consumer queue, regardless of the number of partitions. When using the legacy simple consumer or when separate partition queues are used this setting applies per partition. This value may be overshot by fetch.message.max.bytes. This property has higher priority than queued.min.messages.
+        ///     Maximum number of kilobytes of queued pre-fetched messages in the local consumer queue. If using the high-level consumer this setting applies to the single consumer queue, regardless of the number of partitions. When using the legacy simple consumer or when separate partition queues are used this setting applies per partition. This value may be overshot by fetch.message.max.bytes. This property has higher priority than queued.min.messages. This property is not supported for share consumers.
         ///
         ///     default: 65536
         ///     importance: medium
@@ -1930,7 +1935,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     How long to postpone the next fetch request for a topic+partition in case the current fetch queue thresholds (queued.min.messages or queued.max.messages.kbytes) have been exceded. This property may need to be decreased if the queue thresholds are set low and the application is experiencing long (~1s) delays between messages. Low values may increase CPU utilization.
+        ///     How long to postpone the next fetch request for a topic+partition in case the current fetch queue thresholds (queued.min.messages or queued.max.messages.kbytes) have been exceded. This property may need to be decreased if the queue thresholds are set low and the application is experiencing long (~1s) delays between messages. Low values may increase CPU utilization. This property is not supported for share consumers.
         ///
         ///     default: 1000
         ///     importance: medium
@@ -1940,7 +1945,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Initial maximum number of bytes per topic+partition to request when fetching messages from the broker. If the client encounters a message larger than this value it will gradually try to increase it until the entire message can be fetched.
+        ///     Initial maximum number of bytes per topic+partition to request when fetching messages from the broker. If the client encounters a message larger than this value it will gradually try to increase it until the entire message can be fetched. This property is ignored for share consumers.
         ///
         ///     default: 1048576
         ///     importance: medium
@@ -1950,7 +1955,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Maximum amount of data the broker shall return for a Fetch request. Messages are fetched in batches by the consumer and if the first message batch in the first non-empty partition of the Fetch request is larger than this value, then the message batch will still be returned to ensure the consumer can make progress. The maximum message batch size accepted by the broker is defined via `message.max.bytes` (broker config) or `max.message.bytes` (broker topic config). `fetch.max.bytes` is automatically adjusted upwards to be at least `message.max.bytes` (consumer config).
+        ///     Maximum amount of data the broker shall return for a Fetch request. Messages are fetched in batches by the consumer and if the first message batch in the first non-empty partition of the Fetch request is larger than this value, then the message batch will still be returned to ensure the consumer can make progress. The maximum message batch size accepted by the broker is defined via `message.max.bytes` (broker config) or `max.message.bytes` (broker topic config). For regular (not share) consumers, `fetch.max.bytes` is automatically adjusted upwards to be at least `message.max.bytes` (consumer config).
         ///
         ///     default: 52428800
         ///     importance: medium
@@ -1960,7 +1965,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Minimum number of bytes the broker responds with. If fetch.wait.max.ms expires the accumulated data will be sent to the client regardless of this setting.
+        ///     Minimum number of bytes the broker responds with. If fetch.wait.max.ms expires the accumulated data will be sent to the client regardless of this setting. For regular consumers, this value must be in range 1..100000000
         ///
         ///     default: 1
         ///     importance: low
@@ -1970,7 +1975,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     How long to postpone the next fetch request for a topic+partition in case of a fetch error.
+        ///     How long to postpone the next fetch request for a topic+partition in case of a fetch error. This property is not supported for share consumers.
         ///
         ///     default: 500
         ///     importance: medium
@@ -1980,7 +1985,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Controls how to read messages written transactionally: `read_committed` - only return transactional messages which have been committed. `read_uncommitted` - return all messages, even transactional messages which have been aborted.
+        ///     Controls how to read messages written transactionally: `read_committed` - only return transactional messages which have been committed. `read_uncommitted` - return all messages, even transactional messages which have been aborted. This property is not supported for share consumers.
         ///
         ///     default: read_committed
         ///     importance: high
@@ -1990,7 +1995,7 @@ namespace Confluent.Kafka
 
         /// <summary>
         /// <![CDATA[
-        ///     Emit RD_KAFKA_RESP_ERR__PARTITION_EOF event whenever the consumer reaches the end of a partition.
+        ///     Emit RD_KAFKA_RESP_ERR__PARTITION_EOF event whenever the consumer reaches the end of a partition. This property is not supported for share consumers.
         ///
         ///     default: false
         ///     importance: low
@@ -2007,6 +2012,26 @@ namespace Confluent.Kafka
         /// ]]>
         /// </summary>
         public bool? CheckCrcs { get { return GetBool("check.crcs"); } set { this.SetObject("check.crcs", value); } }
+
+        /// <summary>
+        /// <![CDATA[
+        ///     The maximum number of records returned in a single call to `rd_kafka_share_poll()`. This value is sent to the broker in the ShareFetch request and therefore bounds the number of records the broker acquires and returns per fetch. Note: this limit is currently best-effort and not strictly enforced, so a poll may occasionally return more records than this value. This property is only supported for share consumers.
+        ///
+        ///     default: 500
+        ///     importance: low
+        /// ]]>
+        /// </summary>
+        public int? MaxPollRecords { get { return GetInt("max.poll.records"); } set { this.SetObject("max.poll.records", value); } }
+
+        /// <summary>
+        /// <![CDATA[
+        ///     Acknowledgement mode for share consumers. 'implicit' - messages are implicitly acknowledged when the next poll is called. 'explicit' - messages must be explicitly acknowledged using rd_kafka_share_acknowledge*() APIs.
+        ///
+        ///     default: implicit
+        ///     importance: medium
+        /// ]]>
+        /// </summary>
+        public string ShareAcknowledgementMode { get { return Get("share.acknowledgement.mode"); } set { this.SetObject("share.acknowledgement.mode", value); } }
 
     }
 

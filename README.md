@@ -33,39 +33,38 @@ client. Thanks Andreas!
 
 confluent-kafka-dotnet is distributed via NuGet. We provide the following  packages:
 
-- [Confluent.Kafka](https://www.nuget.org/packages/Confluent.Kafka/) *[netstandard2.0, net462, net6.0, net8.0]* - The core client library.
-- [Confluent.SchemaRegistry.Serdes.Avro](https://www.nuget.org/packages/Confluent.SchemaRegistry.Serdes.Avro/) *[netstandard2.0, net6.0, net8.0]* - Provides a serializer and deserializer for working with Avro serialized data with Confluent Schema Registry integration.
-- [Confluent.SchemaRegistry.Serdes.Protobuf](https://www.nuget.org/packages/Confluent.SchemaRegistry.Serdes.Protobuf/) *[netstandard2.0, net6.0, net8.0]* - Provides a serializer and deserializer for working with Protobuf serialized data with Confluent Schema Registry integration.
-- [Confluent.SchemaRegistry.Serdes.Json](https://www.nuget.org/packages/Confluent.SchemaRegistry.Serdes.Json/) *[netstandard2.0, net6.0, net8.0]* - Provides a serializer and deserializer for working with Json serialized data with Confluent Schema Registry integration.
-- [Confluent.SchemaRegistry](https://www.nuget.org/packages/Confluent.SchemaRegistry/) *[netstandard2.0, net6.0, net8.0]* - Confluent Schema Registry client (a dependency of the Confluent.SchemaRegistry.Serdes packages).
-- [Confluent.SchemaRegistry.Encryption](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption/) *[net6.0, net8.0]* - Confluent Schema Registry client-side field-level encryption client (a dependency of the other Confluent.SchemaRegistry.Encryption.* packages).
-- [Confluent.SchemaRegistry.Encryption.Aws](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.Aws/) *[net6.0, net8.0]* - Confluent Schema Registry client-side field-level encryption client for AWS KMS.
-- [Confluent.SchemaRegistry.Encryption.Azure](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.Azure/) *[net6.0, net8.0]* - Confluent Schema Registry client-side field-level encryption client for Azure Key Vault.
-- [Confluent.SchemaRegistry.Encryption.Gcp](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.Gcp/) *[net6.0, net8.0]* - Confluent Schema Registry client-side field-level encryption client for Google Cloud KMS.
-- [Confluent.SchemaRegistry.Encryption.HcVault](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.HcVault/) *[net6.0, net8.0]* - Confluent Schema Registry client-side field-level encryption client for Hashicorp Vault.
-- [Confluent.SchemaRegistry.Rules](https://www.nuget.org/packages/Confluent.SchemaRegistry.Rules/) *[net6.0, net8.0]* - Confluent Schema Registry client-side support for data quality rules (via the Common Expression Language) and schema migration rules (via JSONata).
+- [Confluent.Kafka](https://www.nuget.org/packages/Confluent.Kafka/) *[netstandard2.0, net462, net8.0, net10.0]* - The core client library.
+- [Confluent.Kafka.OAuthBearer.Aws](https://www.nuget.org/packages/Confluent.Kafka.OAuthBearer.Aws/) *[netstandard2.1, net462, net8.0, net10.0]* - Optional AWS IAM-based OAUTHBEARER authentication for Confluent.Kafka.
+- [Confluent.SchemaRegistry.Serdes.Avro](https://www.nuget.org/packages/Confluent.SchemaRegistry.Serdes.Avro/) *[netstandard2.0, net462, net8.0, net10.0]* - Provides a serializer and deserializer for working with Avro serialized data with Confluent Schema Registry integration.
+- [Confluent.SchemaRegistry.Serdes.Protobuf](https://www.nuget.org/packages/Confluent.SchemaRegistry.Serdes.Protobuf/) *[netstandard2.0, net462, net8.0, net10.0]* - Provides a serializer and deserializer for working with Protobuf serialized data with Confluent Schema Registry integration.
+- [Confluent.SchemaRegistry.Serdes.Json](https://www.nuget.org/packages/Confluent.SchemaRegistry.Serdes.Json/) *[netstandard2.0, net462, net8.0, net10.0]* - Provides a serializer and deserializer for working with Json serialized data with Confluent Schema Registry integration.
+- [Confluent.SchemaRegistry](https://www.nuget.org/packages/Confluent.SchemaRegistry/) *[netstandard2.0, net462, net8.0, net10.0]* - Confluent Schema Registry client (a dependency of the Confluent.SchemaRegistry.Serdes packages).
+- [Confluent.SchemaRegistry.Encryption](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption/) *[netstandard2.1, net462, net8.0, net10.0]* - Confluent Schema Registry client-side field-level encryption client (a dependency of the other Confluent.SchemaRegistry.Encryption.* packages).
+- [Confluent.SchemaRegistry.Encryption.Aws](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.Aws/) *[netstandard2.1, net462, net8.0, net10.0]* - Confluent Schema Registry client-side field-level encryption client for AWS KMS.
+- [Confluent.SchemaRegistry.Encryption.Azure](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.Azure/) *[netstandard2.1, net462, net8.0, net10.0]* - Confluent Schema Registry client-side field-level encryption client for Azure Key Vault.
+- [Confluent.SchemaRegistry.Encryption.Gcp](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.Gcp/) *[netstandard2.1, net462, net8.0, net10.0]* - Confluent Schema Registry client-side field-level encryption client for Google Cloud KMS.
+- [Confluent.SchemaRegistry.Encryption.HcVault](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.HcVault/) *[netstandard2.1, net462, net8.0, net10.0]* - Confluent Schema Registry client-side field-level encryption client for Hashicorp Vault.
+- [Confluent.SchemaRegistry.Encryption.AliCloud](https://www.nuget.org/packages/Confluent.SchemaRegistry.Encryption.AliCloud/) *[netstandard2.1, net462, net8.0, net10.0]* - Confluent Schema Registry client-side field-level encryption client for Alibaba Cloud KMS.
+- [Confluent.SchemaRegistry.Rules](https://www.nuget.org/packages/Confluent.SchemaRegistry.Rules/) *[netstandard2.1, net462, net8.0, net10.0]* - Confluent Schema Registry client-side support for data quality rules (via the Common Expression Language) and schema migration rules (via JSONata).
 
 To install Confluent.Kafka from within Visual Studio, search for Confluent.Kafka in the NuGet Package Manager UI, or run the following command in the Package Manager Console:
 
 ```
-Install-Package Confluent.Kafka -Version 2.14.0
+Install-Package Confluent.Kafka -Version 2.15.1
 ```
 
 To add a reference to a dotnet core project, execute the following at the command line:
 
 ```
-dotnet add package -v 2.14.0 Confluent.Kafka
+dotnet add package -v 2.15.1 Confluent.Kafka
 ```
 
 Note: `Confluent.Kafka` depends on the `librdkafka.redist` package which provides a number of different builds of `librdkafka` that are compatible with [common platforms](https://github.com/edenhill/librdkafka/wiki/librdkafka.redist-NuGet-package-runtime-libraries). If you are on one of these platforms this will all work seamlessly (and you don't need to explicitly reference `librdkafka.redist`). If you are on a different platform, you may need to [build librdkafka](https://github.com/edenhill/librdkafka#building) manually (or acquire it via other means) and load it using the [Library.Load](https://docs.confluent.io/current/clients/confluent-kafka-dotnet/api/Confluent.Kafka.Library.html#Confluent_Kafka_Library_Load_System_String_) method.
 
 ### Branch builds
 
-Nuget packages corresponding to all commits to release branches are available from the following nuget package source (Note: this is not a web URL - you
-should specify it in the nuget package manager):
-[https://ci.appveyor.com/nuget/confluent-kafka-dotnet](https://ci.appveyor.com/nuget/confluent-kafka-dotnet). The version suffix of these nuget packages
-matches the appveyor build number. You can see which commit a particular build number corresponds to by looking at the
-[AppVeyor build history](https://ci.appveyor.com/project/ConfluentClientEngineering/confluent-kafka-dotnet/history)
+Nuget packages corresponding to commits to branches are produced as CI artifacts by [Semaphore](.semaphore/semaphore.yml), with a version suffix of the
+form `ci-<job-id>`.
 
 
 ## Usage

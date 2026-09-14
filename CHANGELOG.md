@@ -1,8 +1,72 @@
-# 2.x.0
+# 2.16.0 (unreleased)
+
+## Enhancements
+
+* Add support for saving Azure key version with DEK (#2641)
+* Pass context when clients make KEK calls to DEK Registry (#2642)
+* Add support for inline validation rules (#2651)
+
+
+# 2.15.1
+
+## Enhancements
+
+* References librdkafka.redist 2.15.1. Refer to the [librdkafka v2.15.1 release notes](https://github.com/confluentinc/librdkafka/releases/tag/v2.15.1) for more information.
 
 ## Fixes
 
-* Handle anyOf/allOf in JSON transforms #2611
+* Fix early return in FindMessageByName (#2644)
+* Preserve HTTP status for retriable SR errors (#2647)
+* Security patch in examples and tests using old NJsonSchema versions, test framework upgrade in `Confluent.Kafka` tests (#2656)
+
+
+# 2.15.0
+
+## Upgrade considerations
+
+Ensure you're not calling `StoreOffset` with an EOF message.
+As when calling `Commit` with an EOF message, it will throw an `InvalidOperationException`.
+Previously this could cause skipping an offset (<2.1.0) or message reprocessing (>=2.1.0).
+
+## New features
+
+* New optional package `Confluent.Kafka.OAuthBearer.Aws` provides AWS IAM-based
+  OAUTHBEARER authentication via AWS STS `GetWebIdentityToken`. Activate by
+  setting `SaslOauthbearerMethod = SaslOauthbearerMethod.Oidc`,
+  `SaslOauthbearerMetadataAuthenticationType.AwsIam`, and supplying
+  `region` and `audience` in `SaslOauthbearerConfig`. See the package's README
+  for details.
+
+## Enhancements
+
+* References librdkafka.redist 2.15.0. Refer to the [librdkafka v2.15.0 release notes](https://github.com/confluentinc/librdkafka/releases/tag/v2.15.0) for more information.
+* Added support for .NET 10 (LTS) and dropped support for .NET 6 (end of support since November 2024). The library now multi-targets `net8.0` and `net10.0` alongside `netstandard2.0` and `net462`. Builds on the approach proposed in #2545 by @ffernandolima, adapted for the centralized `Directory.Build.props` structure on current master.
+* Adds support for union-of-pools/ auto pool mapping for Schema Registry (#2634)
+
+## Fixes
+
+* Throw an `InvalidOperationException` when calling `StoreOffset` with an EOF consume result, to match `Commit` behavior (#2621)
+* Handle non-http errors during retries (#2633)
+
+
+# 2.14.2
+
+## Enhancements
+
+* References librdkafka.redist 2.14.2. Refer to the [librdkafka v2.14.2 release notes](https://github.com/confluentinc/librdkafka/releases/tag/v2.14.2) for more information.
+* Add IHeader overload to Headers.Add() method (#2604)
+
+
+## Fixes
+
+* Handle anyOf/allOf in JSON transforms (#2611)
+* Allow encrypting enum for JObject in dotnet (#2615)
+* Fix 'occured' -> 'occurred' typo in ConsumeException XML doc comments (#2609)
+
+
+# 2.14.1
+
+There was no 2.14.1 release of the .NET Client.
 
 
 # 2.14.0

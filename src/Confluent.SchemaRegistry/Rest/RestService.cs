@@ -124,6 +124,11 @@ namespace Confluent.SchemaRegistry
                 .Select(client => new HttpClient(CreateSocketsHandler(certificates, enableSslCertificateVerification, sslCaCertificates, proxy, maxConnectionsPerServer, timeoutMs))
                 {
                     BaseAddress = new Uri(client, UriKind.Absolute),
+                    // ConnectTimeout (set on the handler) only bounds establishing
+                    // the connection. Also bound the whole request lifetime so a
+                    // server that accepts the connection but never responds times
+                    // out at the configured value rather than the default ~100s.
+                    Timeout = TimeSpan.FromMilliseconds(timeoutMs),
                 })
                 .ToList();
 #else
@@ -312,6 +317,16 @@ namespace Confluent.SchemaRegistry
             HttpResponseMessage response = null;
             bool firstError = true;
 
+            // The status and error code of the most recent attempt, if that attempt
+            // received a response from Schema Registry rather than failing at the
+            // network level. Retained so that a retriable error response (e.g. 503)
+            // surfaces as a SchemaRegistryException once every URL is exhausted,
+            // rather than as an HttpRequestException with the status available only
+            // as text. Reset on a network-level failure, so the exception that is
+            // thrown always describes the last attempt.
+            HttpStatusCode? lastResponseStatus = null;
+            int lastResponseErrorCode = -1;
+
             int startClientIndex;
             lock (lastClientUsedLock)
             {
@@ -373,6 +388,7 @@ namespace Confluent.SchemaRegistry
 
                     firstError = false;
 
+                    bool parsedErrorBody;
                     try
                     {
                         var errorObject = JObject.Parse(
@@ -380,14 +396,27 @@ namespace Confluent.SchemaRegistry
                                 .ConfigureAwait(continueOnCapturedContext: false));
                         message = errorObject.Value<string>("message");
                         errorCode = errorObject.Value<int>("error_code");
+                        parsedErrorBody = true;
                     }
-                    catch
+                    catch (Exception e) when (!(e is OperationCanceledException))
                     {
-                        aggregatedErrorMessage += $"[{clients[clientIndex].BaseAddress}] {response.StatusCode}";
+                        // A cancellation is not a malformed body: let it reach the
+                        // handler below, which treats it as a network error and
+                        // preserves it as the inner exception.
+                        parsedErrorBody = false;
                     }
 
-                    aggregatedErrorMessage +=
-                        $"[{clients[clientIndex].BaseAddress}] {response.StatusCode} {errorCode} {message}";
+                    aggregatedErrorMessage += parsedErrorBody
+                        ? $"[{clients[clientIndex].BaseAddress}] {response.StatusCode} {errorCode} {message}"
+                        : $"[{clients[clientIndex].BaseAddress}] {response.StatusCode}";
+
+                    lastResponseStatus = response.StatusCode;
+                    lastResponseErrorCode = errorCode;
+
+                    // Retriable status: dispose this response before failing over to
+                    // the next URL so its connection isn't leaked across attempts.
+                    response.Dispose();
+                    response = null;
                 }
                 catch (HttpRequestException e)
                 {
@@ -396,6 +425,12 @@ namespace Confluent.SchemaRegistry
                     {
                         throw;
                     }
+
+                    // Dispose any response held from this (or a prior) attempt so its
+                    // connection isn't leaked before failing over to the next URL.
+                    response?.Dispose();
+                    response = null;
+                    lastResponseStatus = null;
 
                     if (!firstError)
                     {
@@ -407,11 +442,49 @@ namespace Confluent.SchemaRegistry
                     aggregatedErrorMessage += $"[{clients[clientIndex].BaseAddress}] HttpRequestException: {e.Message}";
                     aggregatedExceptions.Add(e);
                 }
+                catch (OperationCanceledException e)
+                {
+                    // A request timeout surfaces as TaskCanceledException /
+                    // OperationCanceledException rather than HttpRequestException.
+                    // Treat it like a network error and fail over to the next URL
+                    // instead of letting it propagate immediately.
+
+                    // Dispose any response created before the cancellation (e.g. a
+                    // timeout while reading the response content) so its connection
+                    // isn't leaked.
+                    response?.Dispose();
+                    response = null;
+                    lastResponseStatus = null;
+
+                    if (!firstError)
+                    {
+                        aggregatedErrorMessage += "; ";
+                    }
+
+                    firstError = false;
+
+                    aggregatedErrorMessage += $"[{clients[clientIndex].BaseAddress}] {e.GetType().Name}: {e.Message}";
+                    aggregatedExceptions.Add(e);
+                }
             }
 
-            Exception innerException = aggregatedExceptions.Count == 1
-                ? aggregatedExceptions[0]
-                : new AggregateException(aggregatedExceptions);
+            Exception innerException = aggregatedExceptions.Count == 0
+                ? null
+                : aggregatedExceptions.Count == 1
+                    ? aggregatedExceptions[0]
+                    : new AggregateException(aggregatedExceptions);
+
+            if (lastResponseStatus.HasValue)
+            {
+                // The last attempt received an error response from Schema Registry
+                // with a retriable status (non-retriable statuses throw above), and
+                // every URL has now been tried. Report it the same way as any other
+                // error response, so that callers can inspect Status / ErrorCode
+                // instead of parsing the message.
+                throw new SchemaRegistryException(
+                    aggregatedErrorMessage, lastResponseStatus.Value, lastResponseErrorCode, innerException);
+            }
+
             throw new HttpRequestException(aggregatedErrorMessage, innerException);
         }
 
@@ -421,10 +494,29 @@ namespace Confluent.SchemaRegistry
             HttpResponseMessage response = null;
             for (int i = 0; i < maxRetries; i++)
             {
-                response = await client
-                    .SendAsync(await createRequest())
-                    .ConfigureAwait(continueOnCapturedContext: false);
-                if (IsSuccess((int)response.StatusCode) || !IsRetriable((int)response.StatusCode) || i >= maxRetries)
+                try
+                {
+                    // Dispose the request (and its content) per attempt, including
+                    // when SendAsync throws and we retry, so resources don't
+                    // accumulate across retries.
+                    using var request = await createRequest().ConfigureAwait(false);
+                    response = await client
+                        .SendAsync(request)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+                }
+                catch (Exception e) when (IsRetriableException(e) && i < maxRetries - 1)
+                {
+                    // The request failed before a response was received: a
+                    // connection failure (HttpRequestException) or a request
+                    // timeout (TaskCanceledException / OperationCanceledException).
+                    // Once retries are exhausted the exception propagates so the
+                    // caller can fail over to the next URL.
+                    await Task.Delay(RetryUtility.CalculateRetryDelay(retriesWaitMs, retriesMaxWaitMs, i))
+                        .ConfigureAwait(false);
+                    continue;
+                }
+
+                if (IsSuccess((int)response.StatusCode) || !IsRetriable((int)response.StatusCode))
                 {
                     return response;
                 }
@@ -438,6 +530,18 @@ namespace Confluent.SchemaRegistry
         private static bool IsSuccess(int statusCode)
         {
             return statusCode >= 200 && statusCode < 300;
+        }
+
+        private static bool IsRetriableException(Exception e)
+        {
+            // Network-level failures that occur before/instead of an HTTP
+            // response: connection failures surface as HttpRequestException,
+            // and request timeouts surface as TaskCanceledException /
+            // OperationCanceledException. SchemaRegistryException derives from
+            // HttpRequestException but represents a server response, so it must
+            // not be treated as a network error.
+            return (e is HttpRequestException && !(e is SchemaRegistryException))
+                || e is OperationCanceledException;
         }
 
         private static bool IsRetriable(int statusCode)
@@ -512,7 +616,11 @@ namespace Confluent.SchemaRegistry
                         await bearerProvider.InitOrRefreshAsync().ConfigureAwait(continueOnCapturedContext: false);
                     }
 
-                    request.Headers.Add("Confluent-Identity-Pool-Id", bearerProvider.GetIdentityPool());
+                    var identityPool = bearerProvider.GetIdentityPool();
+                    if (!string.IsNullOrEmpty(identityPool))
+                    {
+                        request.Headers.Add("Confluent-Identity-Pool-Id", identityPool);
+                    }
                     request.Headers.Add("target-sr-cluster", bearerProvider.GetLogicalCluster());
                 }
                 request.Headers.Authorization = authenticationHeaderValueProvider.GetAuthenticationHeader();
