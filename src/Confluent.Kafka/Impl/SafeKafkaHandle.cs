@@ -822,8 +822,11 @@ namespace Confluent.Kafka.Impl
                 {
                     throw new Exception("Failed to create topic partition list");
                 }
-                foreach (var partition in partitions)
+
+                for (var index = 0; index < partitionsCount; index++)
                 {
+                    var partition = partitions[index];
+
                     if (partition.Topic == null)
                     {
                         Librdkafka.topic_partition_list_destroy(list);
