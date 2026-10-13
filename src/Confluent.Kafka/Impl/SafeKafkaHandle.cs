@@ -815,7 +815,9 @@ namespace Confluent.Kafka.Impl
             IntPtr list = IntPtr.Zero;
             if (partitions != null)
             {
-                list = Librdkafka.topic_partition_list_new((IntPtr) partitions.Count());
+                var partitionsCount = partitions.Count;
+
+                list = Librdkafka.topic_partition_list_new((IntPtr) partitionsCount);
                 if (list == IntPtr.Zero)
                 {
                     throw new Exception("Failed to create topic partition list");
